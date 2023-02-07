@@ -1,0 +1,39 @@
+#Trajectory Analysis
+
+cds <- as.cell_data_set(immune.combined)
+cds <- cluster_cells(cds, resolution=1e-3)
+
+#
+p1 <- plot_cells(cds, color_cells_by = "cluster", show_trajectory_graph = TRUE)
+p2 <- plot_cells(cds, color_cells_by = "partition", show_trajectory_graph = TRUE)
+wrap_plots(p1, p2)
+#
+#
+integrated.sub <- subset(as.Seurat(cds, assay = NULL), monocle3_partitions == 1)
+cds1 <- as.cell_data_set(integrated.sub)
+#
+#
+cds1 <- learn_graph(cds1, use_partition = TRUE, verbose = FALSE)
+
+plot_cells(cds1,
+          color_cells_by = "celltype",
+          label_groups_by_cluster=FALSE,
+          label_leaves=FALSE,
+          label_branch_points=FALSE,
+          graph_label_size=5,
+          group_label_size=4)
+#
+ggsave("pseudotime-1.png", width = 20, height = 12, dpi=600, limitsize = FALSE)
+#
+cds1 <- order_cells(cds1, root_cells = colnames(cds1[,clusters(cds1) == 1]))
+plot_cells(cds,
+          color_cells_by = "pseudotime",
+          group_cells_by = "cluster",
+          label_cell_groups = FALSE,
+          label_groups_by_cluster=FALSE,
+          label_leaves=FALSE,
+          label_branch_points=FALSE,
+          label_roots = FALSE,
+          trajectory_graph_color = "grey60")
+
+ggsave("pseudotime-2.png", width = 20, height = 12, dpi=600, limitsize = FALSE)
