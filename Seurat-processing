@@ -1,0 +1,53 @@
+library(Seurat)
+library(scCustomize)
+library(ggplot2)
+library(cowplot)
+library(future)
+library(multtest)
+library(monocle3)
+library(SeuratWrappers)
+library(patchwork)
+library(SingleR)
+library(dplyr)
+library(metap)
+plan(multisession)
+nbrOfWorkers()  ## == availableCores()
+plan("multicore", workers = 24)
+options(future.globals.maxSize = 32000 * 1024^2)
+
+# Set up control object
+
+# Load the dataset
+data <- Read10X(data.dir = "../data/pbmc3k/filtered_gene_bc_matrices/hg19/")
+# Initialize the Seurat object with the raw (non-normalized data).
+model <- CreateSeuratObject(counts = data, project = "scRNA-seq", min.cells = 3, min.features = 200)
+model
+
+model[["percent.mt"]] <- PercentageFeatureSet(model, pattern = "^MT-")
+model_vln <- VlnPlot(ctrl, features = c("nFeature_RNA", "percent.mt", add.noise = FALSE, remove.legend = TRUE, do.return=TRUE), ncol = 2) +theme(legend.position="none") + theme(legend.text=element_text(size=20))
+
+model_vln + ggplot2::scale_fill_manual(values = 'blue') + ggplot2::theme(legend.direction="vertical") + theme(legend.text=element_text(size=10))
+
+# ggsave("figures/preparation/violin.plot.model-reduced.png", width = 20, height = 12, dpi=600, limitsize = FALSE)
+
+#summary(ctrl$nFeature_RNA)
+
+ggsave("figures/preparation/violin.plot.model.png", width = 20, height = 12, dpi=600, limitsize = FALSE)
+plot1 <- FeatureScatter(ctrl, feature1 = "nCount_RNA", feature2 = "percent.mt")
+ggsave("figures/preparation/percent.mt.model.png", width = 20, height = 12, dpi=600, limitsize = FALSE)
+plot2 <- FeatureScatter(ctrl, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+ggsave("figures/preparation/nFeature.model.png", width = 20, height = 12, dpi=600, limitsize = FALSE)
+plot1 + plot2
+
+ggsave("figures/preparation/percent.mt+nFeature.model.png", width = 20, height = 12, dpi=600, limitsize = FALSE)
+
+model <- subset(model, subset = nFeature_RNA > 200 & nFeature_RNA < 5000 & percent.mt < 25)
+model <- NormalizeData(model, normalization.method = "LogNormalize", scale.factor = 10000, verbose = FALSE)
+model <- FindVariableFeatures(model, selection.method = "vst", nfeatures = 2000)
+
+top10 <- head(VariableFeatures(model), 10)
+plot1 <- VariableFeaturePlot(model)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot2
+
+ggsave("figures/preparation/degs-model.png", width = 20, height = 12, dpi=600, limitsize = FALSE)
