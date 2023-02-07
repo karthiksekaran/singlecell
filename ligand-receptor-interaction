@@ -1,0 +1,41 @@
+library(CellChat)
+library(patchwork)
+options(stringsAsFactors = FALSE)
+
+
+#Part I: Data input & processing and initialization of CellChat object
+
+
+cellchat <- createCellChat(object = immune.combined, group.by = "celltype", assay = "RNA")
+
+
+#Set the ligand-receptor interaction database
+
+CellChatDB <- CellChatDB.human # use CellChatDB.mouse if running on mouse data
+showDatabaseCategory(CellChatDB)
+
+#Preprocessing the expression data for cell-cell communication analysis
+
+cellchat@DB <- CellChatDB
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+future::plan("multiprocess", workers = 4) # do parallel
+
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+
+#Part II: Inference of cell-cell communication network
+
+
+cellchat <- computeCommunProb(cellchat)
+
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+
+cellchat <- computeCommunProbPathway(cellchat)
+
+cellchat <- aggregateNet(cellchat)
+
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
